@@ -1,0 +1,73 @@
+---
+- debug:
+     var: directory_today
+     
+- name: Valida Oracle WebLogic
+  shell: ps -fea | grep -i weblogic | grep -i server 
+  register: weblogic_info
+
+- name: MOSTRAR WebLogic
+  debug:
+    msg: '{{weblogic_info.stdout}}'
+
+- name: Valida Version de Java
+  command: java -version
+  register: java_info
+  
+- name: MOSTRAR VERSION JAVA
+  debug:
+    msg: '{{java_info.stderr_lines}}'
+
+- name: Crea Directorio Local Artefacto
+  file:
+    path: "/home/oracle/Oracle/Middleware/Oracle_Home/user_projects/domains/base_domain/{{directory_today}}"
+    state: directory
+
+- name: Descarga Artefacto Directorio Local
+  ansible.builtin.command: wget -P "/home/oracle/Oracle/Middleware/Oracle_Home/user_projects/domains/base_domain/{{directory_today}}" --http-user=Deploy --password=Depl0y+7 {{url_deploy}}
+
+
+###### SI SE REQUIERE DETENER Y ELIMINAR EL DESPLIEGUE 
+- name: DETENER Deploy
+  ansible.builtin.command: java -cp /home/oracle/Oracle/Middleware/Oracle_Home/wlserver/server/lib/weblogic.jar weblogic.Deployer -stop -name  {{deploy_name}} -username weblogic -password Winner2020 -adminurl t3://192.168.1.7:7001/console
+  register: output
+  failed_when: "'failed' in output.stderr"
+  when:  "stop == 'yes'"
+
+
+
+- name: Eliminar Deploy
+  ansible.builtin.command: java -cp /home/oracle/Oracle/Middleware/Oracle_Home/wlserver/server/lib/weblogic.jar weblogic.Deployer -undeploy -name  {{deploy_name}} -username weblogic -password Winner2020 -adminurl t3://192.168.1.7:7001/console
+  register: output
+  failed_when: "'failed' in output.stderr"
+  when:  "undeploy == 'yes'"
+
+######
+
+
+- name: Deploy Artefacto
+  ansible.builtin.command: java -cp /home/oracle/Oracle/Middleware/Oracle_Home/wlserver/server/lib/weblogic.jar weblogic.Deployer -adminurl t3://192.168.1.7:7001 -username weblogic -password Winner2020 -deploy -name helloworld_{{directory_today}}  -targets AdminServer -source /home/oracle/Oracle/Middleware/Oracle_Home/user_projects/domains/base_domain/{{directory_today}}/helloworld.war
+  register: output
+  failed_when: "'failed' in output.stderr"
+
+- debug:
+     var: output
+     
+##### EN CASO QUE SALGA EL ERROR is already in use by the module Y QUE LA IPCION undeploy Y stop ESTEN HABILITADAS procede a hacer proceso 
+
+- debug:
+     msg: "ERROR DE MODULO EXISTENTEX"
+  failed_when: "'already' in output.stdout"
+  ignore_errors: yes
+  
+  
+- name: DETIENE EL DEPLOY POR FALLA
+  ansible.builtin.command: java -cp /home/oracle/Oracle/Middleware/Oracle_Home/wlserver/server/lib/weblogic.jar weblogic.Deployer -stop -name  {{deploy_name}} -username weblogic -password Winner2020 -adminurl t3://192.168.1.7:7001/console
+  register: output
+  failed_when: "'failed' in output.stderr"
+  when:  "autorepair == 'yes'"
+
+
+- debug:
+     msg: "La consola de Administracion de WebLogic Esta Bloqueada o en uso"
+  when:  "'Administration Console' in output.stdout"
