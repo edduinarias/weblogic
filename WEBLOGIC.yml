@@ -1,0 +1,10 @@
+---
+- name: GESTIONANDO ACCION '{{ action }}' SOBRE DB '{{ dbname_sql }}' USUARIO '{{ username_sql }}''
+  gather_facts: false
+  hosts: all
+  vars:
+   - directory_today: "{{ lookup('pipe', 'date +%d%m%y') }}"
+  collections:
+    - zeusbaba.wdt
+  roles:
+    - WEBLOGIC
